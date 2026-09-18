@@ -220,5 +220,6 @@ table.w td.txt_left {
 .board-toolbar {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   margin-bottom: 10px;
 }

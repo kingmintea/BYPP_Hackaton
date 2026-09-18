@@ -287,3 +287,165 @@ saveTimeBtn.addEventListener("click", saveDailyTime);
 
 refreshSites();
 loadDailyTime();
+
+// ---- WebMCP: AI Agent가 이 페이지의 기능을 직접 호출할 수 있도록 도구를 노출한다.
+// Chrome의 navigator.modelContext (WebMCP, Chrome 149+ 오리진 트라이얼) 지원 브라우저에서만 동작하고,
+// 지원하지 않는 브라우저에서는 그냥 아무 일도 하지 않는다(기존 화면 동작에는 영향 없음).
+
+function textResult(text) {
+  return { content: [{ type: "text", text }] };
+}
+
+function registerAgentTools() {
+  if (!("modelContext" in navigator)) return;
+
+  navigator.modelContext.registerTool({
+    name: "list_watched_sites",
+    description:
+      "현재 등록된 모든 감시 사이트 목록을 가져온다. 각 사이트의 id, 별칭, URL, 키워드, 최근 확인 상태(status), " +
+      "새 글 감지 여부(triggered)를 포함한다. 다른 도구에 site_id를 넘기기 전에 먼저 이 도구로 id를 확인해야 한다.",
+    inputSchema: { type: "object", properties: {} },
+    execute: async () => {
+      const sites = await apiGetSites();
+      return textResult(JSON.stringify(sites));
+    },
+  });
+
+  navigator.modelContext.registerTool({
+    name: "register_watch_site",
+    description:
+      "새 공지사항 페이지를 감시 목록에 등록한다. 등록하는 즉시 서버가 해당 URL에 접속해서 유효성을 검사하고, " +
+      "접속이 안 되거나 게시판 구조를 인식하지 못하면 오류를 반환한다.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        alias: { type: "string", description: "사이트를 구분할 별칭" },
+        url: {
+          type: "string",
+          description: "감시할 공지사항 목록 페이지의 전체 URL (https://로 시작) 또는 이 서버 안의 상대 경로(예: board/index.html)",
+        },
+        keywords: {
+          type: "array",
+          items: { type: "string" },
+          description: "감지할 키워드 목록. 비우면 새로 올라오는 모든 글에 반응한다.",
+        },
+      },
+      required: ["alias", "url"],
+    },
+    execute: async ({ alias, url, keywords }) => {
+      try {
+        const site = await apiAddSite(alias, url, keywords || []);
+        await refreshSites();
+        return textResult(`등록 완료: ${JSON.stringify(site)}`);
+      } catch (e) {
+        return textResult(`등록 실패: ${e.message}`);
+      }
+    },
+  });
+
+  navigator.modelContext.registerTool({
+    name: "update_site_keywords",
+    description: "등록된 사이트의 감지 키워드를 수정한다. site_id는 list_watched_sites로 확인한다.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        site_id: { type: "string", description: "사이트 id" },
+        keywords: { type: "array", items: { type: "string" }, description: "새로 설정할 키워드 목록" },
+      },
+      required: ["site_id", "keywords"],
+    },
+    execute: async ({ site_id, keywords }) => {
+      await apiUpdateKeywords(site_id, keywords || []);
+      await refreshSites();
+      return textResult(`키워드를 ${JSON.stringify(keywords || [])}로 수정했습니다.`);
+    },
+  });
+
+  navigator.modelContext.registerTool({
+    name: "check_site_now",
+    description: "지정한 사이트를 지금 즉시 확인해서 새 공지가 올라왔는지 검사하고, 검사 후 상태를 반환한다.",
+    inputSchema: {
+      type: "object",
+      properties: { site_id: { type: "string", description: "사이트 id" } },
+      required: ["site_id"],
+    },
+    execute: async ({ site_id }) => {
+      await apiCheckSite(site_id);
+      await refreshSites();
+      const site = currentSites.find((s) => s.id === site_id);
+      return textResult(site ? JSON.stringify(site) : "해당 id의 사이트를 찾을 수 없습니다.");
+    },
+  });
+
+  navigator.modelContext.registerTool({
+    name: "check_all_sites_now",
+    description: "등록된 모든 사이트를 지금 즉시 확인해서 새 공지가 있는지 검사하고, 전체 상태를 반환한다.",
+    inputSchema: { type: "object", properties: {} },
+    execute: async () => {
+      await checkAll();
+      return textResult(JSON.stringify(currentSites));
+    },
+  });
+
+  navigator.modelContext.registerTool({
+    name: "clear_site_alert",
+    description: "사이트의 '새 글 감지' 알림 상태를 해제한다 (화면의 빨간색 표시를 끈다).",
+    inputSchema: {
+      type: "object",
+      properties: { site_id: { type: "string", description: "사이트 id" } },
+      required: ["site_id"],
+    },
+    execute: async ({ site_id }) => {
+      await apiClearSite(site_id);
+      await refreshSites();
+      return textResult("알림을 해제했습니다.");
+    },
+  });
+
+  navigator.modelContext.registerTool({
+    name: "delete_watch_site",
+    description: "등록된 감시 사이트를 목록에서 삭제한다.",
+    inputSchema: {
+      type: "object",
+      properties: { site_id: { type: "string", description: "사이트 id" } },
+      required: ["site_id"],
+    },
+    execute: async ({ site_id }) => {
+      await apiDeleteSite(site_id);
+      await refreshSites();
+      return textResult("삭제했습니다.");
+    },
+  });
+
+  navigator.modelContext.registerTool({
+    name: "get_daily_check_schedule",
+    description: "서버가 매일 자동으로 모든 사이트를 확인하는 시각(HH:MM)을 가져온다.",
+    inputSchema: { type: "object", properties: {} },
+    execute: async () => {
+      const settings = await apiGetSettings();
+      return textResult(JSON.stringify(settings));
+    },
+  });
+
+  navigator.modelContext.registerTool({
+    name: "set_daily_check_schedule",
+    description: "서버가 매일 자동으로 모든 사이트를 확인할 시각을 설정한다. 브라우저를 꺼둬도 서버가 이 시각에 자동 확인한다.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        daily_check_time: { type: "string", description: "24시간제 HH:MM 형식 시각 (예: 09:00)" },
+      },
+      required: ["daily_check_time"],
+    },
+    execute: async ({ daily_check_time }) => {
+      try {
+        const settings = await apiSaveSettings(daily_check_time);
+        return textResult(`자동 확인 시각을 ${settings.dailyCheckTime}로 저장했습니다.`);
+      } catch (e) {
+        return textResult(`저장 실패: ${e.message}`);
+      }
+    },
+  });
+}
+
+registerAgentTools();

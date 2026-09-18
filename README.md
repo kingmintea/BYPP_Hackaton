@@ -9,7 +9,7 @@
 데모를 위해 사이트 두 개로 구성했습니다.
 
 - **감지 웹앱** (`index.html`) — URL/키워드를 등록하고 결과를 확인하는 메인 화면
-- **목업 공지 게시판** (`board/`) — 실제 대학 공지사항 게시판과 같은 구조(`article-title` 클래스)로 만든 데모용 가짜 게시판. 여기 글을 올리면 감지 웹앱이 실제로 잡아냅니다.
+- **목업 공지 게시판** (`board/`) — 실제 대학 공지사항 게시판처럼 만든 데모용 가짜 게시판. 여기 글을 올리면 감지 웹앱이 실제로 잡아냅니다.
 
 ## 주요 기능
 
@@ -19,6 +19,24 @@
 - **수동 확인**: "지금 확인" / "지금 모두 확인" 버튼으로 즉시 확인 가능
 - **키워드 매칭 알림**: 새로 올라온 글 중 지정한 키워드가 포함된 글이 있을 때만 반응 (카드 배경 + 전체 화면이 빨간색으로 변하고 상단에 알림 배너 표시)
 - **URL 유효성 검사**: 사이트 등록 시 서버가 즉시 해당 URL을 확인해서, 형식이 잘못됐거나 접속이 안 되거나 게시판 구조를 인식하지 못하면 각 상황에 맞는 오류 메시지를 보여줌
+
+## AI Agent용 API (WebMCP)
+
+`index.html`을 지원 브라우저(Chrome 149+, `navigator.modelContext` 오리진 트라이얼)에서 열면, 페이지가 로드될 때 AI Agent가 직접 호출할 수 있는 도구(tool) 9개를 `navigator.modelContext.registerTool()`로 등록합니다. 미지원 브라우저에서는 아무 영향 없이 조용히 무시됩니다(`watcher.js`의 `registerAgentTools()`).
+
+| 도구 | 설명 |
+|---|---|
+| `list_watched_sites` | 등록된 사이트 목록과 상태 조회 |
+| `register_watch_site` | 새 사이트 등록 (별칭, URL, 키워드) |
+| `update_site_keywords` | 키워드 수정 |
+| `check_site_now` | 특정 사이트 즉시 확인 |
+| `check_all_sites_now` | 전체 사이트 즉시 확인 |
+| `clear_site_alert` | 알림 상태 해제 |
+| `delete_watch_site` | 사이트 삭제 |
+| `get_daily_check_schedule` | 자동 확인 시각 조회 |
+| `set_daily_check_schedule` | 자동 확인 시각 변경 |
+
+내부적으로는 화면의 버튼들이 호출하는 것과 동일한 서버 API(`/api/sites`, `/api/settings` 등)를 그대로 사용하므로, Agent가 실행한 작업은 화면에도 즉시 반영됩니다.
 
 ## 왜 서버가 크롤링을 하는가
 

@@ -100,30 +100,41 @@ def save_settings(settings):
 
 class ArticleTitleParser(HTMLParser):
     """
-    게시판 목록에서 글 제목을 뽑아낸다. 사이트마다 마크업이 달라서 두 가지 패턴을 모두 인식한다.
-      1. <a class="article-title">제목</a>                (정보대학 공지사항, 목업 게시판)
-      2. <td class="title">...<a>제목</a>...</td>          (안암학사 dorm.korea.ac.kr 등)
-    새로운 사이트가 이 두 패턴에 안 맞으면 여기에 패턴을 추가해야 한다.
+    게시판 목록에서 글 제목을 뽑아낸다. 실제 대학 사이트 세 곳을 비교해보니 태그 종류(a/td/dt)와
+    class 이름이 제각각이었지만, 공통적으로 제목을 감싸는 어딘가에 "title"이라는 단어가 class에
+    포함돼 있었다. 그래서 특정 태그/정확한 class명을 하드코딩하는 대신, "class 속성에 'title'이라는
+    글자가 들어간 태그(자기 자신이든 조상이든) 안에 있는 <a> 태그의 글자"를 제목으로 인식한다.
+      - <a class="article-title">제목</a>                                 (정보대학, 목업 게시판)
+      - <td class="title">...<a>제목</a>...</td>                          (안암학사 dorm.korea.ac.kr)
+      - <dt class="board-list-content-title ...">...<a>제목</a>...</dt>   (성균관대 skku.edu)
+    이 규칙과도 안 맞는 사이트가 있으면(예: class에 title이란 단어가 전혀 없는 경우), 그 사이트의
+    HTML을 확인해서 이 클래스에 새로운 인식 규칙을 추가해야 한다.
     """
+
+    # 닫는 태그가 없는(자식을 가질 수 없는) 태그들. 이런 태그의 class에 "title"이 들어 있어도
+    # 조상 스택에 올리면 안 된다 — handle_endtag가 절대 호출되지 않아 스택이 영영 안 빠지기 때문.
+    VOID_TAGS = {
+        "area", "base", "br", "col", "embed", "hr", "img",
+        "input", "link", "meta", "source", "track", "wbr",
+    }
 
     def __init__(self):
         super().__init__()
         self.titles = []
         self._capture = False
         self._buffer = ""
-        self._title_td_depth = 0  # 0보다 크면 지금 <td class="title..."> 안에 있다는 뜻
+        self._title_ancestor_stack = []  # class에 "title"이 들어간, 지금 열려 있는 태그들
 
     def handle_starttag(self, tag, attrs):
         attrs_dict = dict(attrs)
         classes = (attrs_dict.get("class") or "").split()
+        has_title_class = any("title" in c.lower() for c in classes)
 
-        if tag == "td" and "title" in classes:
-            self._title_td_depth += 1
+        if has_title_class and tag not in self.VOID_TAGS:
+            self._title_ancestor_stack.append(tag)
 
         if tag == "a" and not self._capture:
-            is_article_title_anchor = "article-title" in classes
-            is_inside_title_td = self._title_td_depth > 0
-            if is_article_title_anchor or is_inside_title_td:
+            if has_title_class or self._title_ancestor_stack:
                 self._capture = True
                 self._buffer = ""
 
@@ -137,8 +148,8 @@ class ArticleTitleParser(HTMLParser):
             title = " ".join(self._buffer.split()).strip()
             if title:
                 self.titles.append(title)
-        if tag == "td" and self._title_td_depth > 0:
-            self._title_td_depth -= 1
+        if self._title_ancestor_stack and self._title_ancestor_stack[-1] == tag:
+            self._title_ancestor_stack.pop()
 
 
 class CrawlError(Exception):
@@ -282,6 +293,7 @@ BOARD_TEMPLATE = """<!DOCTYPE html>
   </header>
 
   <div class="board-toolbar">
+    <button class="secondary" onclick="location.href='../index.html'">감지 웹앱으로 돌아가기</button>
     <button onclick="location.href='write.html'">글쓰기</button>
   </div>
 
