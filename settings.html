@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>자동 확인 시각 설정</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="app-header">
+    <h1>⚙️ 자동 확인 시각 설정</h1>
+    <span class="sub">서버가 매일 이 시각에 등록된 사이트를 자동으로 확인해요</span>
+  </header>
+
+  <div class="board-toolbar">
+    <button class="secondary" onclick="location.href='index.html'">감지 웹앱으로 돌아가기</button>
+  </div>
+
+  <section class="panel">
+    <div class="form-row">
+      <input id="dailyTimeInput" type="time">
+      <button id="saveTimeBtn">저장</button>
+    </div>
+    <p id="dailyTimeStatus" class="empty-hint"></p>
+  </section>
+</div>
+
+<script>
+  const dailyTimeInput = document.getElementById("dailyTimeInput");
+  const saveTimeBtn = document.getElementById("saveTimeBtn");
+  const dailyTimeStatus = document.getElementById("dailyTimeStatus");
+
+  function describe(dailyCheckTime) {
+    return `서버가 매일 ${dailyCheckTime}에 등록된 모든 사이트를 자동으로 확인합니다 (브라우저를 꺼둬도 동작해요).`;
+  }
+
+  async function loadDailyTime() {
+    const res = await fetch("/api/settings");
+    const settings = await res.json();
+    dailyTimeInput.value = settings.dailyCheckTime;
+    dailyTimeStatus.textContent = describe(settings.dailyCheckTime);
+  }
+
+  async function saveDailyTime() {
+    if (!dailyTimeInput.value) {
+      alert("시각을 선택해주세요.");
+      return;
+    }
+    const res = await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dailyCheckTime: dailyTimeInput.value }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || "저장 실패");
+      return;
+    }
+    const settings = await res.json();
+    dailyTimeStatus.textContent = describe(settings.dailyCheckTime);
+  }
+
+  saveTimeBtn.addEventListener("click", saveDailyTime);
+  loadDailyTime();
+</script>
+</body>
+</html>

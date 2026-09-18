@@ -9,9 +9,6 @@ const addSiteBtn = document.getElementById("addSiteBtn");
 const checkAllBtn = document.getElementById("checkAllBtn");
 const autoToggleBtn = document.getElementById("autoToggleBtn");
 const alertBanner = document.getElementById("alertBanner");
-const dailyTimeInput = document.getElementById("dailyTimeInput");
-const saveTimeBtn = document.getElementById("saveTimeBtn");
-const dailyTimeStatus = document.getElementById("dailyTimeStatus");
 
 let autoTimer = null;
 let editingId = null;
@@ -259,34 +256,11 @@ function toggleAuto() {
   }
 }
 
-// ---- 자동 확인 시각 설정 ----
-
-async function loadDailyTime() {
-  const settings = await apiGetSettings();
-  dailyTimeInput.value = settings.dailyCheckTime;
-  dailyTimeStatus.textContent = `서버가 매일 ${settings.dailyCheckTime}에 등록된 모든 사이트를 자동으로 확인합니다 (브라우저를 꺼둬도 동작해요).`;
-}
-
-async function saveDailyTime() {
-  if (!dailyTimeInput.value) {
-    alert("시각을 선택해주세요.");
-    return;
-  }
-  try {
-    const settings = await apiSaveSettings(dailyTimeInput.value);
-    dailyTimeStatus.textContent = `서버가 매일 ${settings.dailyCheckTime}에 등록된 모든 사이트를 자동으로 확인합니다 (브라우저를 꺼둬도 동작해요).`;
-  } catch (e) {
-    alert(e.message);
-  }
-}
-
 addSiteBtn.addEventListener("click", addSite);
 checkAllBtn.addEventListener("click", checkAll);
 autoToggleBtn.addEventListener("click", toggleAuto);
-saveTimeBtn.addEventListener("click", saveDailyTime);
 
 refreshSites();
-loadDailyTime();
 
 // ---- WebMCP: AI Agent가 이 페이지의 기능을 직접 호출할 수 있도록 도구를 노출한다.
 // Chrome의 navigator.modelContext (WebMCP, Chrome 149+ 오리진 트라이얼) 지원 브라우저에서만 동작하고,

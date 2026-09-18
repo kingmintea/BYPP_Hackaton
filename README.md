@@ -101,6 +101,7 @@ Serving on http://localhost:8420 (자동 확인 스케줄러 동작 중)
 
 ```
 index.html      감지 웹앱 화면
+settings.html   자동 확인 시각 설정 화면
 style.css       공통 스타일
 watcher.js      감지 웹앱 로직 (서버 API 호출)
 server.py       정적 파일 서빙 + 크롤링 + 자동 확인 스케줄러 + 데이터 저장(API)
