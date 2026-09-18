@@ -35,6 +35,8 @@ header.app-header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
   margin-bottom: 20px;
 }
 
@@ -160,6 +162,7 @@ button:hover {
 
 .site-card .card-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -189,8 +192,13 @@ button:hover {
 }
 
 /* mock board */
+.table-scroll {
+  overflow-x: auto;
+}
+
 table.w {
   width: 100%;
+  min-width: 480px;
   border-collapse: collapse;
   background: var(--card-bg);
   font-size: 0.85rem;
@@ -219,6 +227,7 @@ table.w td.txt_left {
 
 .board-toolbar {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
   margin-bottom: 10px;

@@ -298,19 +298,21 @@ BOARD_TEMPLATE = """<!DOCTYPE html>
   </div>
 
   <section class="panel">
-    <table class="w">
-      <thead>
-        <tr>
-          <th scope="col">번호</th>
-          <th scope="col">제목</th>
-          <th scope="col">작성자</th>
-          <th scope="col">등록일</th>
-        </tr>
-      </thead>
-      <tbody>
+    <div class="table-scroll">
+      <table class="w">
+        <thead>
+          <tr>
+            <th scope="col">번호</th>
+            <th scope="col">제목</th>
+            <th scope="col">작성자</th>
+            <th scope="col">등록일</th>
+          </tr>
+        </thead>
+        <tbody>
 {rows}
-      </tbody>
-    </table>
+        </tbody>
+      </table>
+    </div>
   </section>
 </div>
 </body>
@@ -569,8 +571,26 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
 
+def lan_ip():
+    """이 PC가 같은 와이파이의 다른 기기(휴대폰 등)에 보여주는 IP를 추정한다."""
+    import socket
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))  # 실제로 데이터를 보내지 않음, 라우팅 확인용
+        return s.getsockname()[0]
+    except OSError:
+        return None
+    finally:
+        s.close()
+
+
 if __name__ == "__main__":
     threading.Thread(target=scheduler_loop, daemon=True).start()
-    httpd = ThreadingHTTPServer(("localhost", PORT), Handler)
+    # 0.0.0.0으로 열어야 같은 와이파이의 휴대폰 등 다른 기기에서도 접속할 수 있다.
+    httpd = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"Serving on {BASE_URL} (자동 확인 스케줄러 동작 중)")
+    ip = lan_ip()
+    if ip:
+        print(f"같은 와이파이의 휴대폰/다른 기기에서는: http://{ip}:{PORT}/index.html")
     httpd.serve_forever()
