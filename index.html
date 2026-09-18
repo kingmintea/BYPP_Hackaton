@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>공지사항 감지 웹앱</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="app-header">
+    <h1>공지사항 감지 웹앱</h1>
+    <span class="sub">등록한 사이트를 확인해서 새 공지를 알려줘요</span>
+  </header>
+
+  <div id="alertBanner" class="alert-banner"></div>
+
+  <section class="panel">
+    <h2>사이트 등록</h2>
+    <div class="form-row">
+      <input id="aliasInput" type="text" placeholder="별칭 (예: 정보대학 공지)">
+      <input id="urlInput" type="text" placeholder="URL (예: board/index.html)">
+    </div>
+    <div class="form-row">
+      <input id="keywordInput" type="text" placeholder="감지할 키워드 (쉼표로 구분, 비우면 모든 새 글 감지) 예: 장학금">
+    </div>
+    <div class="form-row">
+      <button id="addSiteBtn">북마크 추가</button>
+      <button id="checkAllBtn" class="secondary">지금 모두 확인</button>
+      <button id="autoToggleBtn" class="secondary">자동 새로고침 시작 (10초)</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>자동 확인 시각 설정</h2>
+    <div class="form-row">
+      <input id="dailyTimeInput" type="time">
+      <button id="saveTimeBtn">저장</button>
+    </div>
+    <p id="dailyTimeStatus" class="empty-hint"></p>
+  </section>
+
+  <section class="panel">
+    <h2>등록된 사이트</h2>
+    <div id="cardGrid" class="card-grid"></div>
+    <p id="emptyHint" class="empty-hint">아직 등록된 사이트가 없어요. 위에서 URL을 추가해보세요.</p>
+  </section>
+</div>
+
+<script src="watcher.js"></script>
+</body>
+</html>

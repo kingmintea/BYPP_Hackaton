@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>글쓰기 - 정보대학 공지사항 (목업)</title>
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="app-header">
+    <h1>✍️ 공지 글쓰기</h1>
+    <span class="sub">여기에 새 글을 올리면 목록에 반영돼요</span>
+  </header>
+
+  <section class="panel">
+    <div class="form-row">
+      <input id="titleInput" type="text" placeholder="제목 (예: 2026학년도 2학기 장학금 신청 안내)">
+    </div>
+    <div class="form-row">
+      <input id="authorInput" type="text" placeholder="작성자" value="정보대학행정팀">
+    </div>
+    <div class="form-row">
+      <button id="submitBtn">등록</button>
+      <button class="secondary" onclick="location.href='index.html'">목록으로</button>
+    </div>
+  </section>
+</div>
+
+<script>
+  document.getElementById("submitBtn").addEventListener("click", async () => {
+    const title = document.getElementById("titleInput").value.trim();
+    const author = document.getElementById("authorInput").value.trim() || "정보대학행정팀";
+    if (!title) {
+      alert("제목을 입력해주세요.");
+      return;
+    }
+    await fetch("/api/board/notices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, author }),
+    });
+    location.href = "index.html";
+  });
+</script>
+</body>
+</html>
