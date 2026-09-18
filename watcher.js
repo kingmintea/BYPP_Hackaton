@@ -197,11 +197,16 @@ async function addSite() {
     return;
   }
 
+  addSiteBtn.disabled = true;
+  addSiteBtn.textContent = "URL 확인 중...";
   try {
     await apiAddSite(alias, url, keywords);
   } catch (e) {
     alert(e.message);
     return;
+  } finally {
+    addSiteBtn.disabled = false;
+    addSiteBtn.textContent = "북마크 추가";
   }
 
   aliasInput.value = "";

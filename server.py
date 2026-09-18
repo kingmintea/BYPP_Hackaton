@@ -124,6 +124,10 @@ class ArticleTitleParser(HTMLParser):
                 self.titles.append(title)
 
 
+class CrawlError(Exception):
+    """URL 등록/확인 시 사용자에게 그대로 보여줄 수 있는, 케이스별로 구분된 오류 메시지."""
+
+
 def resolve_url(url):
     if url.startswith("http://") or url.startswith("https://"):
         return url
@@ -142,6 +146,29 @@ def crawl(url):
     return parser.titles
 
 
+def validate_and_crawl(url):
+    """URL을 검증하고 크롤링한다. 실패 케이스마다 다른 메시지의 CrawlError를 던진다."""
+    resolved = resolve_url(url)
+    parsed = urllib.parse.urlparse(resolved)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise CrawlError("올바른 URL 형식이 아닙니다.")
+
+    try:
+        titles = crawl(resolved)
+    except urllib.error.HTTPError as e:
+        raise CrawlError(f"사이트가 오류를 반환했습니다 (HTTP {e.code}).")
+    except urllib.error.URLError as e:
+        raise CrawlError(f"사이트에 접속할 수 없습니다: {e.reason}")
+    except (ValueError, ConnectionError, TimeoutError, OSError) as e:
+        raise CrawlError(f"사이트에 접속할 수 없습니다: {e}")
+
+    if not titles:
+        raise CrawlError(
+            "공지 목록을 찾을 수 없습니다. 이 페이지의 게시판 구조를 지원하지 않을 수 있어요."
+        )
+    return titles
+
+
 def korean_time_str(dt):
     period = "오전" if dt.hour < 12 else "오후"
     hour12 = dt.hour % 12 or 12
@@ -150,7 +177,7 @@ def korean_time_str(dt):
 
 def perform_check(site):
     try:
-        titles = crawl(resolve_url(site["url"]))
+        titles = validate_and_crawl(site["url"])
         if site.get("lastTitles") is None:
             site["lastTitles"] = titles
             site["status"] = f"기준 상태 저장됨 ({len(titles)}건) — {korean_time_str(datetime.now())}"
@@ -353,9 +380,9 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(400, {"ok": False, "error": "url parameter required"})
                 return
             try:
-                titles = crawl(target)
+                titles = validate_and_crawl(target)
                 self._send_json(200, {"ok": True, "titles": titles})
-            except Exception as e:
+            except CrawlError as e:
                 self._send_json(502, {"ok": False, "error": str(e)})
             return
 
@@ -373,13 +400,18 @@ class Handler(BaseHTTPRequestHandler):
             if not alias or not url:
                 self._send_json(400, {"ok": False, "error": "alias, url은 필수입니다."})
                 return
+            try:
+                titles = validate_and_crawl(url)
+            except CrawlError as e:
+                self._send_json(400, {"ok": False, "error": str(e)})
+                return
             site = {
                 "id": uuid.uuid4().hex[:10],
                 "alias": alias,
                 "url": url,
                 "keywords": keywords,
-                "lastTitles": None,
-                "status": "아직 확인 전",
+                "lastTitles": titles,
+                "status": f"기준 상태 저장됨 ({len(titles)}건) — {korean_time_str(datetime.now())}",
                 "triggered": False,
             }
             sites = load_sites()
