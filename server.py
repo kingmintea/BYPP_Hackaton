@@ -99,18 +99,33 @@ def save_settings(settings):
 # ---------- 크롤링 ----------
 
 class ArticleTitleParser(HTMLParser):
+    """
+    게시판 목록에서 글 제목을 뽑아낸다. 사이트마다 마크업이 달라서 두 가지 패턴을 모두 인식한다.
+      1. <a class="article-title">제목</a>                (정보대학 공지사항, 목업 게시판)
+      2. <td class="title">...<a>제목</a>...</td>          (안암학사 dorm.korea.ac.kr 등)
+    새로운 사이트가 이 두 패턴에 안 맞으면 여기에 패턴을 추가해야 한다.
+    """
+
     def __init__(self):
         super().__init__()
         self.titles = []
         self._capture = False
         self._buffer = ""
+        self._title_td_depth = 0  # 0보다 크면 지금 <td class="title..."> 안에 있다는 뜻
 
     def handle_starttag(self, tag, attrs):
         attrs_dict = dict(attrs)
         classes = (attrs_dict.get("class") or "").split()
-        if tag == "a" and "article-title" in classes:
-            self._capture = True
-            self._buffer = ""
+
+        if tag == "td" and "title" in classes:
+            self._title_td_depth += 1
+
+        if tag == "a" and not self._capture:
+            is_article_title_anchor = "article-title" in classes
+            is_inside_title_td = self._title_td_depth > 0
+            if is_article_title_anchor or is_inside_title_td:
+                self._capture = True
+                self._buffer = ""
 
     def handle_data(self, data):
         if self._capture:
@@ -122,6 +137,8 @@ class ArticleTitleParser(HTMLParser):
             title = " ".join(self._buffer.split()).strip()
             if title:
                 self.titles.append(title)
+        if tag == "td" and self._title_td_depth > 0:
+            self._title_td_depth -= 1
 
 
 class CrawlError(Exception):
@@ -148,6 +165,10 @@ def crawl(url):
 
 def validate_and_crawl(url):
     """URL을 검증하고 크롤링한다. 실패 케이스마다 다른 메시지의 CrawlError를 던진다."""
+    # http(s)://로 시작하지 않는 입력은 "이 서버 안의 상대 경로"(예: board/index.html)로 간주해서
+    # 자동으로 완전한 주소를 만들어준다. 이 경우 'asdfasdgsdg' 같은 오타/무의미한 입력도 문법적으로는
+    # 멀쩡한 URL이 되어버리므로, 실패 시 relative 여부에 따라 메시지를 다르게 준다.
+    is_relative_guess = not (url.startswith("http://") or url.startswith("https://"))
     resolved = resolve_url(url)
     parsed = urllib.parse.urlparse(resolved)
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
@@ -156,6 +177,12 @@ def validate_and_crawl(url):
     try:
         titles = crawl(resolved)
     except urllib.error.HTTPError as e:
+        if is_relative_guess:
+            raise CrawlError(
+                f"'{url}' 경로를 찾을 수 없습니다 (HTTP {e.code}). "
+                "외부 사이트는 https://(또는 http://)로 시작하는 전체 주소를, "
+                "이 서버 안의 페이지는 board/index.html처럼 실제 경로를 입력해주세요."
+            )
         raise CrawlError(f"사이트가 오류를 반환했습니다 (HTTP {e.code}).")
     except urllib.error.URLError as e:
         raise CrawlError(f"사이트에 접속할 수 없습니다: {e.reason}")

@@ -7,7 +7,7 @@
 혼자 여러 학교 공지사항 페이지(이벤트 결과 발표, 장학금/지원사업 공고 등)를 챙겨야 하는 개인 사용자가, 매일 설정된 시간에, 북마크처럼 등록해둔 URL들을 자동으로 확인해서 이전 상태와 비교하고 지정한 키워드가 포함된 새 글이 올라왔는지 감지하여, 직접 매일 사이트를 방문하지 않고도 화면 색 변화로 "확인해야 할 새 공지가 생겼다"는 사실을 알아차린다.
 
 ## 확인된 것
-1. **사이트 구조 유사성 — 확인됨**: 정보대학 컴퓨터학과 공지사항(`cs.korea.ac.kr/cs/board/notice_under.do`)은 `<table class="w">` 기반 게시판 목록형. 각 글은 `<td class="txt_left"><div class="b-title-box"><a class="article-title" href="?mode=view&articleNo=...">제목</a></div></td>` 구조, 작성자/조회수/등록일 칼럼 포함, 상단 고정 공지는 `top-notice-bg` 클래스로 구분, 페이지네이션 있음. 목업 게시판도 동일한 `article-title` 클래스로 제작해서 파싱 로직을 실제 사이트와 동일하게 맞춤.
+1. **사이트 구조 유사성 — 확인됨, 사이트마다 다름이 드러남**: 정보대학 컴퓨터학과 공지사항(`cs.korea.ac.kr/cs/board/notice_under.do`)은 `<table class="w">` 기반 게시판 목록형. 각 글은 `<td class="txt_left"><div class="b-title-box"><a class="article-title" href="?mode=view&articleNo=...">제목</a></div></td>` 구조. 반면 안암학사 공지사항(`dorm.korea.ac.kr/front/board/1/post`)은 `<td class="title "><a href="/front/board/1/post/10534?">제목<span></span></a></td>` 구조로, `<a>`에 class가 아예 없고 대신 부모 `<td>`가 `title` class를 가짐 — **같은 학교 안에서도 사이트마다 마크업이 다름**을 확인. `server.py`의 `ArticleTitleParser`가 두 패턴(`<a class="article-title">` / `<td class="title">` 안의 `<a>`)을 모두 인식하도록 일반화해서 두 사이트 모두 정상 크롤링됨(정보대학 18건, 안암학사 25건, 회귀 테스트로 목업 게시판도 재확인). 새 사이트를 등록했는데 "공지 목록을 찾을 수 없습니다" 오류가 뜨면, 그 사이트의 실제 HTML을 열어 제목이 어떤 태그/class 구조인지 확인하고 파서에 패턴을 추가해야 함.
 2. **구현 방식 — 확인됨, 중요한 제약 발견**: **브라우저 단독으로는 외부(다른 출처) 사이트를 크롤링할 수 없다.** 실제 정보대학 URL을 등록해 테스트한 결과:
    - iframe으로 로드 시도 → `X-Frame-Options: SAMEORIGIN` 헤더 때문에 `contentDocument`가 null (다른 출처 iframe 내용 접근 차단)
    - `fetch()`로 직접 시도 → `TypeError: Failed to fetch` (서버가 `Access-Control-Allow-Origin` 헤더를 안 보내서 CORS 차단)
